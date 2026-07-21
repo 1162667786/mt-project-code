@@ -1,0 +1,12 @@
+rank_bm25
+transformers
+accelerate
+torch
+tqdm
+pandas
+sacrebleu
+unbabel-comet
+numpy
+sentence-transformers
+scipy
+pytest

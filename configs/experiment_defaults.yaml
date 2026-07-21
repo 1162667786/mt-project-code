@@ -1,0 +1,42 @@
+data:
+  flores_root: /path/to/flores200
+  demonstration_split: dev
+  evaluation_split: devtest
+  output_root: /path/to/output
+
+runtime:
+  shots: 8
+  candidate_size: 50
+  decoding: greedy
+  temperature: 0
+  max_new_tokens: 128
+
+translation_models:
+  bloomz: bigscience/bloomz-7b1-mt
+  llama3: meta-llama/Meta-Llama-3-8B-Instruct
+  qwen3: Qwen/Qwen3-8B
+
+retrieval_models:
+  gte: Alibaba-NLP/gte-multilingual-base
+  sonar: text_sonar_basic_encoder
+
+metric_models:
+  xcomet: Unbabel/XCOMET-XL
+  comet22: Unbabel/wmt22-comet-da
+  qe: Unbabel/wmt22-cometkiwi-da
+
+risk_control:
+  error_profile_rerank:
+    alpha: 0.75
+    beta: 0.20
+    gamma: 0.05
+  quality_rerank:
+    lambda_quality: 0.15
+  keep_top_r: 2
+  critical_threshold: 0
+  major_threshold: 2
+  severity_weights:
+    minor: 0.1
+    major: 0.5
+    critical: 1.0
+    span_ratio_coefficient: 0.3

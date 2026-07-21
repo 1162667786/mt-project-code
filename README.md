@@ -1,0 +1,170 @@
+# Supplementary Code and Experimental Results
+
+This anonymized repository contains implementation code, MT-ICL prompt
+implementations, experimental configurations, and de-identified,
+analysis-ready result data supporting the submitted manuscript.
+
+It is provided for peer review and for inspection of the implementation,
+experimental settings, and reported results. Author and institutional
+information has been removed for double-anonymized review.
+
+## Contents
+
+- `scripts/`: experiment entry points for reference scoring, MT-ICL execution,
+  retrieval-cache regeneration, and automatic evaluation.
+- `src/`: retrieval, demonstration selection, prompting, normalization, I/O,
+  and metric utilities.
+- `configs/`: example paths and the fixed experimental settings.
+- `prompts/`: documentation for the prompt builders implemented in
+  `src/llm_utils.py`.
+- `results/`: detailed numeric result records and the CSV files corresponding
+  directly to the manuscript tables. See `results/README.md` for file details.
+
+## Environment and external dependencies
+
+Python 3.10 or is recommended. Create an environment and install the
+Python dependencies with:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+The following externally obtained model checkpoints were used:
+
+- translation: `bigscience/bloomz-7b1-mt`,
+  `meta-llama/Meta-Llama-3-8B-Instruct`, and `Qwen/Qwen3-8B`;
+- GTE retrieval: `Alibaba-NLP/gte-multilingual-base`;
+- SONAR retrieval: Meta SONAR's official `text_sonar_basic_encoder`;
+- reference-risk diagnosis: `Unbabel/XCOMET-XL`;
+- reference-based evaluation: `Unbabel/wmt22-comet-da`;
+- reference-free evaluation: `Unbabel/wmt22-cometkiwi-da`.
+
+Model access, licenses, GPU memory, and any gated-model authentication must be
+arranged by the user. Model checkpoints are not included in this repository.
+
+The official SONAR backend additionally requires `sonar-space` and a
+`fairseq2` build compatible with the installed PyTorch/CUDA versions. These
+platform-specific packages are not pinned in `requirements.txt`; install them
+following the official SONAR and fairseq2 instructions for the target system.
+
+## Data
+
+Obtain FLORES-200 from its official source. FLORES-200 sentence text is not
+redistributed here. The FLORES `dev` split is used as the demonstration pool, 
+and the `devtest` split is used as the evaluation set.
+
+Prepare each language-pair file in JSONL form with an example identifier,
+source sentence, and target reference. Example paths are:
+
+```text
+/path/to/flores200/eng_Latn-hau_Latn_dev.jsonl
+/path/to/flores200/eng_Latn-hau_Latn_devtest.jsonl
+```
+
+## Running the experiments
+
+The public experiment scripts are:
+
+- `score_references_with_xcomet.py`: score source-reference pairs with xCOMET;
+- `prepare_demo_xcomet_features.py`: attach xCOMET-derived risk features to the
+  demonstration pool;
+- `run_mt_icl.py`: run zero-/few-shot MT-ICL selection experiments with BM25,
+  GTE, or SONAR;
+- `score_outputs_with_comet.py`: score generated translations with COMET22;
+- `score_outputs_with_cometkiwi_qe.py`: score generated translations with
+  COMETKiwi QE.
+
+First attach xCOMET-derived reference-risk features to a development pool:
+
+```bash
+python scripts/prepare_demo_xcomet_features.py \
+  --demo_pool /path/to/flores200/eng_Latn-hau_Latn_dev.jsonl \
+  --output_file outputs/eng_Latn-hau_Latn_dev_with_risk.jsonl \
+  --xcomet_model /path/to/model/xcomet/checkpoints/model.ckpt
+```
+
+Run the relevance-first baseline or a conservative post-retrieval method. The
+following example uses BM25 and EP-Rerank (`error_profile_rerank`):
+
+```bash
+python scripts/run_mt_icl.py \
+  --demo_pool outputs/eng_Latn-hau_Latn_dev_with_risk.jsonl \
+  --test_file /path/to/flores200/eng_Latn-hau_Latn_devtest.jsonl \
+  --output_file outputs/eng_Latn-hau_Latn_error_profile_rerank.jsonl \
+  --src_lang English \
+  --tgt_lang Hausa \
+  --lang_pair eng_Latn-hau_Latn \
+  --retriever bm25 \
+  --selector_method error_profile_rerank \
+  --candidate_size 50 \
+  --shots 8 \
+  --translator_model /path/to/model \
+  --model_family qwen3 \
+  --alpha 0.75 --beta 0.20 --gamma 0.05 \
+  --max_test_samples -1 \
+  --device cuda
+```
+
+Run `python scripts/run_mt_icl.py --help` for all retrievers and selection policies.
+
+### Method-name mapping
+
+The command-line selector names and manuscript labels correspond as follows:
+
+| `--selector_method` | Manuscript label |
+|---|---|
+| `retriever_topk` | TopK |
+| `random` | Random |
+| `quality_only` | Q-Only |
+| `low_quality` | LowQ |
+| `error_filter` | RiskFilter |
+| `quality_rerank` | QT-Rerank |
+| `error_profile_rerank` | EP-Rerank |
+
+`xcomet_span_coverage` is an optional diagnostic selector supported by the
+runner but is not one of the seven selection methods reported in the main
+results table.
+
+## Retrieval-cache regeneration
+
+BM25 builds its index from the supplied development pool at runtime. GTE and
+SONAR retrieval caches can be regenerated by specifying
+`--retriever_cache_dir` together with
+`--force_recompute_retriever_cache`.
+
+Run the following command for the complete retriever-specific options:
+
+```bash
+python scripts/run_mt_icl.py --help
+```
+
+## Experimental result data
+
+`results/detailed_results/` contains de-identified, analysis-ready numeric
+and categorical records supporting the tables and statistical analyses
+reported in the manuscript:
+
+- `reference_risk_by_item.csv`
+- `reference_intervention_by_item.csv`
+- `mt_icl_method_scores_by_setting.csv`
+- `quality_relevance_tradeoff_by_setting.csv`
+- `fixed_relevance_intervention_coverage_by_setting.csv`
+- `fixed_relevance_variant_scores_by_setting.csv`
+- `comet22_qe_agreement_by_output.csv`
+
+`results/reported_tables/` contains CSV versions of Tables 2–9 and Appendix
+Tables A.1, B.1, and B.2. See `results/README.md` for descriptions of the
+shared result files.
+
+## Evaluation
+
+Locally generated translations can be evaluated using the checkpoints listed
+above. Run the following commands for script-specific options:
+
+```bash
+python scripts/score_outputs_with_comet.py --help
+python scripts/score_outputs_with_cometkiwi_qe.py --help
+```
